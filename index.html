@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>YouTube 3.0 - Ultimate Experience</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;800&display=swap');
+
+        :root {
+            --glass-bg: rgba(255, 255, 255, 0.05);
+            --glass-border: rgba(255, 255, 255, 0.1);
+            --accent: #ff003c;
+        }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            overflow-x: hidden;
+        }
+
+        .glass {
+            background: var(--glass-bg);
+            backdrop-filter: blur(12px);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+        }
+
+        .video-card:hover .video-preview { transform: scale(1.05); }
+
+        .sidebar-item.active {
+            background: rgba(255, 255, 255, 0.1);
+            color: var(--accent);
+        }
+
+        #drop-zone.dragover {
+            background: rgba(255, 0, 60, 0.1);
+            border: 2px dashed var(--accent);
+        }
+
+        .hidden-section { display: none; }
+        
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #333; border-radius: 10px; }
+
+        #registration-overlay {
+            background: rgba(0,0,0,0.9);
+            backdrop-filter: blur(20px);
+        }
+
+        .liked-heart { color: #ff003c !important; }
+        .subbed-btn { background: #333 !important; color: white !important; }
+    </style>
+</head>
+<body class="p-4 md:p-6">
+
+    <!-- Окно регистрации -->
+    <div id="registration-overlay" class="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div class="glass p-8 w-full max-w-md border-[#ff003c]/20 shadow-2xl shadow-[#ff003c]/10">
+            <div class="text-center mb-8">
+                <i class="fa-brands fa-youtube text-5xl text-[#ff003c] mb-4"></i>
+                <h2 class="text-2xl font-extrabold">Вход в систему</h2>
+                <p class="text-gray-400 text-sm">Ваши данные сохраняются локально</p>
+            </div>
+            <div class="space-y-4">
+                <input id="reg-nickname" type="text" placeholder="Введите ваш никнейм..." class="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-[#ff003c]">
+                <button onclick="registerUser()" class="w-full bg-[#ff003c] py-4 rounded-xl font-bold hover:shadow-[0_0_20px_rgba(255,0,60,0.4)] transition-all">ВОЙТИ</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Навигация -->
+    <header class="flex items-center justify-between mb-8 glass p-4 sticky top-0 z-40">
+        <div class="flex items-center gap-4">
+            <i class="fa-solid fa-bars text-xl cursor-pointer hover:text-[#ff003c]"></i>
+            <div class="flex items-center gap-1 cursor-pointer" onclick="showSection('main-feed')">
+                <i class="fa-brands fa-youtube text-3xl text-[#ff003c]"></i>
+                <span class="text-xl font-extrabold tracking-tighter uppercase">Tube 3.0</span>
+            </div>
+        </div>
+
+        <div class="flex items-center gap-4">
+            <button onclick="showSection('upload-section')" class="bg-[#ff003c] px-4 py-2 rounded-lg text-sm font-bold flex items-center gap-2 hover:opacity-90 transition-all">
+                <i class="fa-solid fa-plus"></i> Опубликовать
+            </button>
+            <div onclick="showSection('settings-section')" class="flex items-center gap-3 cursor-pointer group">
+                <span id="header-nickname" class="text-sm font-bold group-hover:text-[#ff003c]">...</span>
+                <div class="w-10 h-10 rounded-full bg-gray-800 border border-white/10 overflow-hidden">
+                    <img id="header-avatar" src="" alt="" class="w-full h-full object-cover">
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <div class="flex gap-6">
+        <!-- Сайдбар -->
+        <aside class="hidden lg:flex flex-col gap-2 w-64 shrink-0">
+            <nav class="glass p-4 space-y-2">
+                <div onclick="showSection('main-feed')" class="sidebar-item p-3 rounded-xl flex items-center gap-4 cursor-pointer active" id="side-home">
+                    <i class="fa-solid fa-house"></i> <span>Главная</span>
+                </div>
+                <div onclick="showSection('videos-folder')" class="sidebar-item p-3 rounded-xl flex items-center gap-4 cursor-pointer" id="side-folder">
+                    <i class="fa-solid fa-folder"></i> <span>Мои видео</span>
+                </div>
+                <div onclick="showSection('subscriptions-section')" class="sidebar-item p-3 rounded-xl flex items-center gap-4 cursor-pointer" id="side-subs">
+                    <i class="fa-solid fa-users"></i> <span>Подписки</span>
+                </div>
+            </nav>
+        </aside>
+
+        <!-- Контент -->
+        <main class="flex-1">
+            <section id="main-feed">
+                <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6" id="feed-grid"></div>
+            </section>
+
+            <section id="videos-folder" class="hidden-section">
+                <h2 class="text-2xl font-bold mb-6 flex items-center gap-2"><i class="fa-solid fa-folder"></i> Личный архив</h2>
+                <div class="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4" id="storage-grid"></div>
+            </section>
+
+            <section id="subscriptions-section" class="hidden-section">
+                <h2 class="text-2xl font-bold mb-6">Подписки</h2>
+                <div id="subs-container" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+            </section>
+
+            <!-- Загрузка -->
+            <section id="upload-section" class="hidden-section max-w-2xl mx-auto">
+                <div class="glass p-8">
+                    <h2 class="text-xl font-bold mb-6">Новая публикация</h2>
+                    <div id="drop-zone" class="w-full h-48 glass border-2 border-dashed border-white/20 rounded-2xl flex flex-col items-center justify-center gap-4 mb-8">
+                        <i class="fa-solid fa-file-video text-4xl text-gray-500"></i>
+                        <p class="font-bold text-center">Перетащите файл видео<br><span class="text-xs text-gray-500 font-normal">(вы будете автором)</span></p>
+                        <input type="file" id="file-input" class="hidden" accept="video/*">
+                        <button onclick="document.getElementById('file-input').click()" class="bg-white/10 px-4 py-2 rounded-lg text-xs hover:bg-white/20 transition-all">ВЫБРАТЬ ФАЙЛ</button>
+                    </div>
+                    
+                    <div class="space-y-4">
+                        <div class="bg-white/5 p-4 rounded-xl border border-white/10">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-2">Название</label>
+                            <input id="video-title" type="text" placeholder="Введите название..." class="w-full bg-transparent border-none focus:ring-0 text-white outline-none">
+                        </div>
+                        <div class="bg-white/5 p-4 rounded-xl border border-white/10">
+                            <label class="block text-[10px] uppercase font-bold text-gray-500 mb-2">YouTube ссылка</label>
+                            <input id="url-input" type="text" placeholder="https://youtube.com/watch?v=..." class="w-full bg-transparent border-none focus:ring-0 text-white outline-none">
+                        </div>
+                        <button onclick="finalizeUpload()" class="w-full bg-[#ff003c] py-4 rounded-xl font-bold hover:opacity-90 active:scale-95 transition-all">ОПУБЛИКОВАТЬ</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="settings-section" class="hidden-section max-w-xl mx-auto">
+                <div class="glass p-8">
+                    <h2 class="text-xl font-bold mb-6">Управление данными</h2>
+                    <button onclick="clearAllData()" class="w-full text-red-500 text-sm p-4 border border-red-500/20 rounded-xl hover:bg-red-500/10 transition-all">Удалить всё и выйти</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Плеер -->
+    <div id="player-overlay" class="fixed inset-0 bg-black/98 z-[150] hidden flex flex-col items-center justify-center p-4 backdrop-blur-sm">
+        <button onclick="closePlayer()" class="absolute top-6 right-6 text-2xl hover:text-[#ff003c] transition-colors"><i class="fa-solid fa-times"></i></button>
+        <div class="w-full max-w-4xl">
+            <div id="video-container" class="w-full aspect-video glass bg-black rounded-2xl overflow-hidden shadow-2xl"></div>
+            <div class="mt-6 p-6 glass rounded-2xl">
+                <h2 id="player-title" class="text-xl font-bold mb-2">...</h2>
+                <div class="flex items-center justify-between border-t border-white/10 pt-4">
+                    <div class="flex items-center gap-3">
+                        <div id="p-avatar" class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-600 to-gray-800 flex items-center justify-center">
+                            <i class="fa-solid fa-user text-xs"></i>
+                        </div>
+                        <p id="player-author" class="font-bold">...</p>
+                    </div>
+                    <button onclick="toggleSubscription()" id="btn-subscribe" class="bg-white text-black px-6 py-2 rounded-full text-sm font-bold hover:scale-105 active:scale-95 transition-all">ПОДПИСАТЬСЯ</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast" class="fixed bottom-10 left-1/2 -translate-x-1/2 glass px-6 py-3 text-sm hidden z-[200] border-[#ff003c]/20">
+        <span id="toast-text"></span>
+    </div>
+
+    <script>
+        let Videos = [];
+        let Profiles = {};
+        let currentUserId = null;
+        let currentVideoIndex = -1;
+
+        function initApp() {
+            const savedProfiles = localStorage.getItem('yt3_profiles');
+            const savedUser = localStorage.getItem('yt3_current_user');
+            const savedVideos = localStorage.getItem('yt3_videos');
+
+            if (savedProfiles) Profiles = JSON.parse(savedProfiles);
+            if (savedUser) currentUserId = savedUser;
+            if (savedVideos) Videos = JSON.parse(savedVideos);
+
+            if (currentUserId && Profiles[currentUserId]) {
+                document.getElementById('registration-overlay').style.display = 'none';
+                document.getElementById('header-nickname').innerText = Profiles[currentUserId].nickname;
+                document.getElementById('header-avatar').src = Profiles[currentUserId].avatar;
+                render();
+            }
+        }
+
+        function registerUser() {
+            const nick = document.getElementById('reg-nickname').value.trim();
+            if (!nick) return;
+            currentUserId = 'U-' + Date.now();
+            Profiles[currentUserId] = {
+                nickname: nick,
+                avatar: `https://api.dicebear.com/7.x/initials/svg?seed=${nick}`,
+                subscriptions: [],
+                likedVideos: []
+            };
+            save();
+            location.reload();
+        }
+
+        function save() {
+            localStorage.setItem('yt3_profiles', JSON.stringify(Profiles));
+            localStorage.setItem('yt3_current_user', currentUserId);
+            localStorage.setItem('yt3_videos', JSON.stringify(Videos));
+        }
+
+        const fileInput = document.getElementById('file-input');
+        let pendingFileUrl = null;
+
+        fileInput.onchange = (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                pendingFileUrl = URL.createObjectURL(file);
+                document.getElementById('video-title').value = file.name.split('.')[0];
+                notify("Файл выбран. Вы будете указаны как автор.");
+            }
+        };
+
+        function finalizeUpload() {
+            let title = document.getElementById('video-title').value.trim();
+            const url = document.getElementById('url-input').value.trim();
+            
+            if (!title && !url) { notify("Введите название или вставьте ссылку!"); return; }
+
+            let videoData = {
+                title: title || "Без названия",
+                author: Profiles[currentUserId].nickname, // По умолчанию автор - вы
+                authorId: currentUserId,
+                timestamp: Date.now(),
+                isExternal: false
+            };
+
+            const ytMatch = url.match(/^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/);
+            
+            if (ytMatch && ytMatch[2].length === 11) {
+                // Если ссылка - меняем автора и добавляем палочку
+                videoData.src = ytMatch[2];
+                videoData.type = 'youtube';
+                videoData.thumb = `https://img.youtube.com/vi/${ytMatch[2]}/mqdefault.jpg`;
+                videoData.author = "YouTube Creator"; // Имя автора видео, а не ваше
+                videoData.title = (title || "YouTube Video") + " | Load IN YouTube";
+                videoData.isExternal = true;
+            } else if (pendingFileUrl) {
+                videoData.src = pendingFileUrl;
+                videoData.type = 'local';
+                videoData.thumb = 'https://images.unsplash.com/photo-1598897136451-9993acb8c042?w=400&q=80';
+            } else if (url) {
+                videoData.src = url;
+                videoData.type = 'direct';
+                videoData.thumb = 'https://images.unsplash.com/photo-1516035069371-29a1b244cc32?w=400&q=80';
+                videoData.title = (title || "External Video") + " | Load IN YouTube";
+                videoData.author = "Web Author";
+                videoData.isExternal = true;
+            } else {
+                notify("Ошибка: нет данных для загрузки");
+                return;
+            }
+
+            Videos.unshift(videoData);
+            save();
+            
+            document.getElementById('video-title').value = '';
+            document.getElementById('url-input').value = '';
+            pendingFileUrl = null;
+
+            notify("Успешно опубликовано!");
+            render();
+            showSection('main-feed');
+        }
+
+        function render() {
+            const feed = document.getElementById('feed-grid');
+            const storage = document.getElementById('storage-grid');
+            const subs = document.getElementById('subs-container');
+            
+            if (!feed) return;
+            feed.innerHTML = '';
+            storage.innerHTML = '';
+            subs.innerHTML = '';
+
+            if (Videos.length === 0) {
+                feed.innerHTML = `<div class="col-span-full py-20 text-center opacity-20">Лента пуста. Добавьте первое видео!</div>`;
+            }
+
+            Videos.forEach((v, idx) => {
+                const cardHtml = `
+                    <div class="video-card cursor-pointer group" onclick="openPlayer(${idx})">
+                        <div class="aspect-video glass rounded-2xl overflow-hidden mb-3 relative shadow-lg">
+                            <img src="${v.thumb}" class="w-full h-full object-cover video-preview transition-all duration-500">
+                            <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                                <i class="fa-solid fa-play text-4xl text-white"></i>
+                            </div>
+                        </div>
+                        <div class="flex gap-3">
+                            <div class="w-10 h-10 rounded-full bg-gradient-to-br from-gray-700 to-gray-900 overflow-hidden shrink-0 flex items-center justify-center border border-white/10">
+                                <img src="https://api.dicebear.com/7.x/initials/svg?seed=${v.author}" class="w-full h-full">
+                            </div>
+                            <div class="overflow-hidden">
+                                <h3 class="font-bold text-sm truncate group-hover:text-[#ff003c] transition-colors">${v.title}</h3>
+                                <p class="text-[11px] text-gray-500 mt-0.5 flex items-center gap-1">
+                                    ${v.author} ${v.isExternal ? '<i class="fa-solid fa-link text-[9px]"></i>' : '<i class="fa-solid fa-check-circle text-blue-500 text-[9px]"></i>'}
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                feed.innerHTML += cardHtml;
+
+                if (v.authorId === currentUserId && !v.isExternal) {
+                    storage.innerHTML += `
+                        <div class="glass p-3 relative group cursor-pointer" onclick="openPlayer(${idx})">
+                            <img src="${v.thumb}" class="rounded-lg aspect-video object-cover mb-2">
+                            <p class="text-[11px] font-bold truncate">${v.title}</p>
+                            <button onclick="event.stopPropagation(); deleteVid(${idx})" class="absolute top-2 right-2 bg-red-600/80 p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity hover:bg-red-600">
+                                <i class="fa-solid fa-trash text-[10px]"></i>
+                            </button>
+                        </div>
+                    `;
+                }
+            });
+
+            Profiles[currentUserId].subscriptions.forEach(sub => {
+                subs.innerHTML += `
+                    <div class="glass p-6 text-center hover:bg-white/5 transition-all">
+                        <div class="w-16 h-16 rounded-full bg-gradient-to-tr from-[#ff003c] to-purple-600 mx-auto mb-4 p-0.5">
+                            <img src="https://api.dicebear.com/7.x/initials/svg?seed=${sub}" class="rounded-full bg-black w-full h-full">
+                        </div>
+                        <p class="font-bold text-sm">${sub}</p>
+                        <button onclick="unsubscribe('${sub}')" class="text-[9px] text-gray-500 mt-2 uppercase font-bold hover:text-red-500">Отписаться</button>
+                    </div>
+                `;
+            });
+        }
+
+        function openPlayer(idx) {
+            currentVideoIndex = idx;
+            const v = Videos[idx];
+            const container = document.getElementById('video-container');
+            container.innerHTML = '';
+
+            if (v.type === 'youtube') {
+                container.innerHTML = `<iframe class="w-full h-full" src="https://www.youtube.com/embed/${v.src}?autoplay=1&rel=0" frameborder="0" allow="autoplay; encrypted-media" allowfullscreen></iframe>`;
+            } else {
+                container.innerHTML = `<video src="${v.src}" controls autoplay class="w-full h-full"></video>`;
+            }
+
+            document.getElementById('player-title').innerText = v.title;
+            document.getElementById('player-author').innerText = v.author;
+            document.getElementById('player-overlay').style.display = 'flex';
+            
+            const btn = document.getElementById('btn-subscribe');
+            if (Profiles[currentUserId].subscriptions.includes(v.author)) {
+                btn.innerText = "В ПОДПИСКАХ";
+                btn.classList.add('subbed-btn');
+            } else {
+                btn.innerText = "ПОДПИСАТЬСЯ";
+                btn.classList.remove('subbed-btn');
+            }
+        }
+
+        function toggleSubscription() {
+            const v = Videos[currentVideoIndex];
+            const user = Profiles[currentUserId];
+            if (v.author === user.nickname) return;
+
+            const idx = user.subscriptions.indexOf(v.author);
+            if (idx > -1) user.subscriptions.splice(idx, 1);
+            else user.subscriptions.push(v.author);
+            
+            save();
+            openPlayer(currentVideoIndex);
+            render();
+        }
+
+        function unsubscribe(name) {
+            Profiles[currentUserId].subscriptions = Profiles[currentUserId].subscriptions.filter(s => s !== name);
+            save();
+            render();
+        }
+
+        function closePlayer() {
+            document.getElementById('video-container').innerHTML = '';
+            document.getElementById('player-overlay').style.display = 'none';
+        }
+
+        function deleteVid(idx) {
+            if (confirm("Удалить это видео?")) {
+                Videos.splice(idx, 1);
+                save();
+                render();
+            }
+        }
+
+        function showSection(id) {
+            document.querySelectorAll('main > section').forEach(s => s.classList.add('hidden-section'));
+            document.getElementById(id).classList.remove('hidden-section');
+            document.querySelectorAll('.sidebar-item').forEach(i => i.classList.remove('active'));
+            
+            const map = {'main-feed':'side-home', 'videos-folder':'side-folder', 'subscriptions-section':'side-subs'};
+            if (map[id]) document.getElementById(map[id]).classList.add('active');
+        }
+
+        function notify(m) {
+            const t = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = m;
+            t.classList.remove('hidden');
+            setTimeout(() => t.classList.add('hidden'), 3000);
+        }
+
+        function clearAllData() {
+            if (confirm("Это удалит ваш профиль и все видео. Продолжить?")) {
+                localStorage.clear();
+                location.reload();
+            }
+        }
+
+        window.onload = initApp;
+    </script>
+</body>
+</html>
